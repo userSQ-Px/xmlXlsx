@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XML para XLSX</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            text-align: center;
+        }
+        textarea {
+            width: 80%;
+            height: 200px;
+            margin: 20px 0;
+            font-size: 16px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        #output {
+            margin-top: 20px;
+            font-size: 18px;
+        }
+        .processing {
+            color: orange;
+        }
+        .success {
+            color: green;
+        }
+        .error {
+            color: red;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+    <h1>XML para XLSX</h1>
+    <textarea id="xmlContent" placeholder="Cole aqui o XML"></textarea>
+    <br>
+    <button onclick="convertXmlToXlsx()">Converter e download</button>
+    <div id="output"></div>
+    <script>
+        function convertXmlToXlsx() {
+            const xmlContent = document.getElementById('xmlContent').value.trim();
+            const outputDiv = document.getElementById('output');
+
+            if (!xmlContent) {
+                outputDiv.textContent = "Cole aqui o conteúdo do XML.";
+                outputDiv.className = "error";
+                return;
+            }
+            outputDiv.textContent = "Processando...";
+            outputDiv.className = "processing";
+            setTimeout(() => {
+                try {
+                    const parser = new DOMParser();
+                    const xmlDoc = parser.parseFromString(xmlContent, "text/xml");
+                    const refunds = xmlDoc.getElementsByTagName("Refund");
+                    if (refunds.length === 0) {
+                        outputDiv.textContent = "Nenhum conteúdo encontrado.";
+                        outputDiv.className = "error";
+                        return;
+                    }
+                    const rows = [];
+                    for (let refund of refunds) {
+                        const row = {};
+                        for (let child of refund.children) {
+                            row[child.tagName] = child.textContent;
+                        }
+                        rows.push(row);
+                    }
+                    const worksheet = XLSX.utils.json_to_sheet(rows);
+                    const workbook = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(workbook, worksheet, "Refunds");
+                    const xlsxFileName = "Refunds_Details.xlsx";
+                    XLSX.writeFile(workbook, xlsxFileName);
+                    outputDiv.textContent = "XLSX criado com sucesso!";
+                    outputDiv.className = "success";
+                } catch (error) {
+                    console.error("Erro de processamento", error);
+                    outputDiv.textContent = "Falha de conversão.";
+                    outputDiv.className = "error";
+                }
+            }, 500);
+        }
+    </script>
+</body>
+</html>
