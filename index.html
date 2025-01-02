@@ -34,6 +34,18 @@
         .error {
             color: red;
         }
+        #debug {
+            margin-top: 20px;
+            text-align: left;
+            width: 80%;
+            margin-left: auto;
+            margin-right: auto;
+            background-color: #f9f9f9;
+            padding: 10px;
+            border: 1px solid #ddd;
+            font-size: 14px;
+            white-space: pre-wrap;
+        }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
@@ -43,10 +55,17 @@
     <br>
     <button onclick="convertXmlToXlsx()">Converter e fazer download</button>
     <div id="output"></div>
+    <div id="debug"></div>
     <script>
         function convertXmlToXlsx() {
             const xmlContent = document.getElementById('xmlContent').value.trim();
             const outputDiv = document.getElementById('output');
+            const debugDiv = document.getElementById('debug');
+
+            // Limpar mensagens anteriores
+            outputDiv.textContent = "";
+            outputDiv.className = "";
+            debugDiv.textContent = "";
 
             if (!xmlContent) {
                 outputDiv.textContent = "Por favor, cole o conteúdo do XML.";
@@ -58,50 +77,54 @@
             setTimeout(() => {
                 try {
                     const parser = new DOMParser();
-                    const xmlDoc = parser.parseFromString(xmlContent, "text/xml");
+                    const xmlDoc = parser.parseFromString(xmlContent, "application/xml");
 
-                    // Detectar o formato baseado no nó raiz
-                    const root = xmlDoc.documentElement.nodeName;
-                    let items = [];
-                    let sheetName = "";
-                    
-                    if (root === "Refunds") {
-                        const refunds = xmlDoc.getElementsByTagName("Refund");
-                        if (refunds.length === 0) {
-                            throw new Error("Nenhum elemento <Refund> encontrado.");
-                        }
-                        for (let refund of refunds) {
-                            const row = {};
-                            for (let child of refund.children) {
-                                row[child.tagName] = child.textContent;
-                            }
-                            items.push(row);
-                        }
-                        sheetName = "Refunds";
-                    } else if (root === "Transactions") {
-                        const transactions = xmlDoc.getElementsByTagName("Transaction");
-                        if (transactions.length === 0) {
-                            throw new Error("Nenhum elemento <Transaction> encontrado.");
-                        }
-                        for (let transaction of transactions) {
-                            const row = {};
-                            for (let child of transaction.children) {
-                                row[child.tagName] = child.textContent;
-                            }
-                            items.push(row);
-                        }
-                        sheetName = "Transactions";
-                    } else {
-                        throw new Error("Formato de XML não suportado.");
+                    // Verificar se houve erros na análise do XML
+                    const parserErrors = xmlDoc.getElementsByTagName("parsererror");
+                    if (parserErrors.length > 0) {
+                        throw new Error("XML malformado.");
                     }
 
+                    // Obter o nó raiz
+                    const root = xmlDoc.documentElement;
+                    const rootName = root.nodeName;
+                    debugDiv.textContent += `Nó raiz: ${rootName}\n`;
+
+                    // Obter os elementos filhos que representam os registros
+                    const records = [];
+                    for (let i = 0; i < root.childNodes.length; i++) {
+                        const node = root.childNodes[i];
+                        if (node.nodeType === 1) { // Verifica se é um elemento
+                            records.push(node);
+                        }
+                    }
+
+                    debugDiv.textContent += `Número de registros encontrados: ${records.length}\n`;
+
+                    if (records.length === 0) {
+                        throw new Error("Nenhum registro encontrado no XML.");
+                    }
+
+                    const rows = [];
+                    for (let record of records) {
+                        const row = {};
+                        for (let child of record.children) {
+                            row[child.tagName] = child.textContent;
+                        }
+                        rows.push(row);
+                    }
+
+                    // Mostrar as chaves (cabeçalhos) encontradas
+                    const headers = Array.from(new Set(rows.flatMap(row => Object.keys(row))));
+                    debugDiv.textContent += `Cabeçalhos identificados: ${headers.join(", ")}\n`;
+
                     // Converter JSON para Sheet
-                    const worksheet = XLSX.utils.json_to_sheet(items);
+                    const worksheet = XLSX.utils.json_to_sheet(rows, { header: headers });
                     const workbook = XLSX.utils.book_new();
-                    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+                    XLSX.utils.book_append_sheet(workbook, worksheet, rootName);
 
                     // Nome do arquivo
-                    const xlsxFileName = `${sheetName}_Details.xlsx`;
+                    const xlsxFileName = `${rootName}_Details.xlsx`;
                     XLSX.writeFile(workbook, xlsxFileName);
 
                     outputDiv.textContent = "XLSX criado com sucesso!";
