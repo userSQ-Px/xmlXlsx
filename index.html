@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -41,7 +41,7 @@
     <h1>XML para XLSX</h1>
     <textarea id="xmlContent" placeholder="Cole aqui o XML"></textarea>
     <br>
-    <button onclick="convertXmlToXlsx()">Converter e download</button>
+    <button onclick="convertXmlToXlsx()">Converter e fazer download</button>
     <div id="output"></div>
     <script>
         function convertXmlToXlsx() {
@@ -49,7 +49,7 @@
             const outputDiv = document.getElementById('output');
 
             if (!xmlContent) {
-                outputDiv.textContent = "Cole aqui o conteúdo do XML.";
+                outputDiv.textContent = "Por favor, cole o conteúdo do XML.";
                 outputDiv.className = "error";
                 return;
             }
@@ -59,30 +59,56 @@
                 try {
                     const parser = new DOMParser();
                     const xmlDoc = parser.parseFromString(xmlContent, "text/xml");
-                    const refunds = xmlDoc.getElementsByTagName("Refund");
-                    if (refunds.length === 0) {
-                        outputDiv.textContent = "Nenhum conteúdo encontrado.";
-                        outputDiv.className = "error";
-                        return;
-                    }
-                    const rows = [];
-                    for (let refund of refunds) {
-                        const row = {};
-                        for (let child of refund.children) {
-                            row[child.tagName] = child.textContent;
+
+                    // Detectar o formato baseado no nó raiz
+                    const root = xmlDoc.documentElement.nodeName;
+                    let items = [];
+                    let sheetName = "";
+                    
+                    if (root === "Refunds") {
+                        const refunds = xmlDoc.getElementsByTagName("Refund");
+                        if (refunds.length === 0) {
+                            throw new Error("Nenhum elemento <Refund> encontrado.");
                         }
-                        rows.push(row);
+                        for (let refund of refunds) {
+                            const row = {};
+                            for (let child of refund.children) {
+                                row[child.tagName] = child.textContent;
+                            }
+                            items.push(row);
+                        }
+                        sheetName = "Refunds";
+                    } else if (root === "Transactions") {
+                        const transactions = xmlDoc.getElementsByTagName("Transaction");
+                        if (transactions.length === 0) {
+                            throw new Error("Nenhum elemento <Transaction> encontrado.");
+                        }
+                        for (let transaction of transactions) {
+                            const row = {};
+                            for (let child of transaction.children) {
+                                row[child.tagName] = child.textContent;
+                            }
+                            items.push(row);
+                        }
+                        sheetName = "Transactions";
+                    } else {
+                        throw new Error("Formato de XML não suportado.");
                     }
-                    const worksheet = XLSX.utils.json_to_sheet(rows);
+
+                    // Converter JSON para Sheet
+                    const worksheet = XLSX.utils.json_to_sheet(items);
                     const workbook = XLSX.utils.book_new();
-                    XLSX.utils.book_append_sheet(workbook, worksheet, "Refunds");
-                    const xlsxFileName = "Refunds_Details.xlsx";
+                    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+
+                    // Nome do arquivo
+                    const xlsxFileName = `${sheetName}_Details.xlsx`;
                     XLSX.writeFile(workbook, xlsxFileName);
+
                     outputDiv.textContent = "XLSX criado com sucesso!";
                     outputDiv.className = "success";
                 } catch (error) {
                     console.error("Erro de processamento", error);
-                    outputDiv.textContent = "Falha de conversão.";
+                    outputDiv.textContent = `Falha na conversão: ${error.message}`;
                     outputDiv.className = "error";
                 }
             }, 500);
