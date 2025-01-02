@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -34,18 +34,6 @@
         .error {
             color: red;
         }
-        #debug {
-            margin-top: 20px;
-            text-align: left;
-            width: 80%;
-            margin-left: auto;
-            margin-right: auto;
-            background-color: #f9f9f9;
-            padding: 10px;
-            border: 1px solid #ddd;
-            font-size: 14px;
-            white-space: pre-wrap;
-        }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
@@ -53,22 +41,15 @@
     <h1>XML para XLSX</h1>
     <textarea id="xmlContent" placeholder="Cole aqui o XML"></textarea>
     <br>
-    <button onclick="convertXmlToXlsx()">Converter e fazer download</button>
+    <button onclick="convertXmlToXlsx()">Converter e download</button>
     <div id="output"></div>
-    <div id="debug"></div>
     <script>
         function convertXmlToXlsx() {
             const xmlContent = document.getElementById('xmlContent').value.trim();
             const outputDiv = document.getElementById('output');
-            const debugDiv = document.getElementById('debug');
-
-            // Limpar mensagens anteriores
-            outputDiv.textContent = "";
-            outputDiv.className = "";
-            debugDiv.textContent = "";
 
             if (!xmlContent) {
-                outputDiv.textContent = "Por favor, cole o conteúdo do XML.";
+                outputDiv.textContent = "Cole aqui o conteúdo do XML.";
                 outputDiv.className = "error";
                 return;
             }
@@ -77,61 +58,31 @@
             setTimeout(() => {
                 try {
                     const parser = new DOMParser();
-                    const xmlDoc = parser.parseFromString(xmlContent, "application/xml");
-
-                    // Verificar se houve erros na análise do XML
-                    const parserErrors = xmlDoc.getElementsByTagName("parsererror");
-                    if (parserErrors.length > 0) {
-                        throw new Error("XML malformado.");
+                    const xmlDoc = parser.parseFromString(xmlContent, "text/xml");
+                    const refunds = xmlDoc.getElementsByTagName("Refund");
+                    if (refunds.length === 0) {
+                        outputDiv.textContent = "Nenhum conteúdo encontrado.";
+                        outputDiv.className = "error";
+                        return;
                     }
-
-                    // Obter o nó raiz
-                    const root = xmlDoc.documentElement;
-                    const rootName = root.nodeName;
-                    debugDiv.textContent += `Nó raiz: ${rootName}\n`;
-
-                    // Obter os elementos filhos que representam os registros
-                    const records = [];
-                    for (let i = 0; i < root.childNodes.length; i++) {
-                        const node = root.childNodes[i];
-                        if (node.nodeType === 1) { // Verifica se é um elemento
-                            records.push(node);
-                        }
-                    }
-
-                    debugDiv.textContent += `Número de registros encontrados: ${records.length}\n`;
-
-                    if (records.length === 0) {
-                        throw new Error("Nenhum registro encontrado no XML.");
-                    }
-
                     const rows = [];
-                    for (let record of records) {
+                    for (let refund of refunds) {
                         const row = {};
-                        for (let child of record.children) {
+                        for (let child of refund.children) {
                             row[child.tagName] = child.textContent;
                         }
                         rows.push(row);
                     }
-
-                    // Mostrar as chaves (cabeçalhos) encontradas
-                    const headers = Array.from(new Set(rows.flatMap(row => Object.keys(row))));
-                    debugDiv.textContent += `Cabeçalhos identificados: ${headers.join(", ")}\n`;
-
-                    // Converter JSON para Sheet
-                    const worksheet = XLSX.utils.json_to_sheet(rows, { header: headers });
+                    const worksheet = XLSX.utils.json_to_sheet(rows);
                     const workbook = XLSX.utils.book_new();
-                    XLSX.utils.book_append_sheet(workbook, worksheet, rootName);
-
-                    // Nome do arquivo
-                    const xlsxFileName = `${rootName}_Details.xlsx`;
+                    XLSX.utils.book_append_sheet(workbook, worksheet, "Refunds");
+                    const xlsxFileName = "Refunds_Details.xlsx";
                     XLSX.writeFile(workbook, xlsxFileName);
-
                     outputDiv.textContent = "XLSX criado com sucesso!";
                     outputDiv.className = "success";
                 } catch (error) {
                     console.error("Erro de processamento", error);
-                    outputDiv.textContent = `Falha na conversão: ${error.message}`;
+                    outputDiv.textContent = "Falha de conversão.";
                     outputDiv.className = "error";
                 }
             }, 500);
